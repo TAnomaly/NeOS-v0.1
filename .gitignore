@@ -1,0 +1,11 @@
+build_oss/
+build_raw/
+build_test/
+firmware/firmware.elf
+firmware/firmware.bin
+firmware/firmware.hex
+picorv32/firmware.hex
+picorv32/impl/
+*.bak
+__pycache__/
+.vscode/

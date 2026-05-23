@@ -1,0 +1,49 @@
+# Open-source flow: yosys + nextpnr-himbaechel + gowin_pack + openFPGALoader
+# Tang Nano 9K = GW1NR-LV9 QN88C6/I5 (family GW1N-9C)
+
+PROJ      := picorv32_soc
+SRC_DIR   := src
+BUILD_DIR := build_oss
+
+SOURCES := $(SRC_DIR)/top.v $(SRC_DIR)/soc.v $(SRC_DIR)/picorv32.v \
+           $(SRC_DIR)/ram.v $(SRC_DIR)/uart_tx.v $(SRC_DIR)/uart_rx.v \
+           $(SRC_DIR)/ip/gowin_rpll.v $(SRC_DIR)/ip/gowin_clkdiv.v \
+           $(SRC_DIR)/hdmi/svo_tmds.v $(SRC_DIR)/hdmi/svo_term.v \
+           $(SRC_DIR)/hdmi/svo_enc.v  $(SRC_DIR)/hdmi/svo_tcard.v \
+           $(SRC_DIR)/hdmi/svo_vdma.v $(SRC_DIR)/hdmi/svo_utils.v \
+           $(SRC_DIR)/hdmi/svo_hdmi_top.v
+
+CST       := tangnano9k.cst
+DEVICE    := GW1NR-LV9QN88PC6/I5
+FAMILY    := GW1N-9C
+PACK_DEV  := GW1N-9C
+
+YOSYS     := yosys
+NEXTPNR   := nextpnr-himbaechel
+PACK      := gowin_pack
+LOADER    := openFPGALoader
+
+.PHONY: all clean flash sram
+
+all: $(BUILD_DIR)/$(PROJ).fs
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(BUILD_DIR)/$(PROJ).json: $(SOURCES) | $(BUILD_DIR)
+	$(YOSYS) -p "read_verilog -noautowire $(SOURCES); synth_gowin -top top -json $@"
+
+$(BUILD_DIR)/$(PROJ).pnr.json: $(BUILD_DIR)/$(PROJ).json $(CST)
+	$(NEXTPNR) --json $< --write $@ --device $(DEVICE) --vopt family=$(FAMILY) --vopt cst=$(CST)
+
+$(BUILD_DIR)/$(PROJ).fs: $(BUILD_DIR)/$(PROJ).pnr.json
+	$(PACK) -d $(PACK_DEV) -o $@ $<
+
+flash: $(BUILD_DIR)/$(PROJ).fs
+	$(LOADER) -b tangnano9k -f $<
+
+sram: $(BUILD_DIR)/$(PROJ).fs
+	$(LOADER) -b tangnano9k $<
+
+clean:
+	rm -rf $(BUILD_DIR)
