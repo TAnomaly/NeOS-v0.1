@@ -9,6 +9,8 @@
 
 #include "interp.h"
 #include "cc.h"
+#include "gui.h"
+#include "sched.h"
 extern void cc_setup_syscalls(void);
 #define CC_CODE_BASE  ((uint32_t *)0x00006100u)
 #define CC_CODE_MAX   960
@@ -213,7 +215,7 @@ static uint32_t prng_next(void) {
 static void prng_stir(uint32_t e) { prng_state ^= e * 0x9E3779B1u; }
 
 /* --------- info --------- */
-static void cmd_info(void) {
+void cmd_info(void) {
     puts_both("NeOS v0.3  /  picorv32 (RV32IMC)  /  27 MHz\r\n");
     puts_both("32 KB BRAM total\r\n");
     puts_both("  bootloader region: 0x0000-0x5FFF (24 KB)\r\n");
@@ -225,7 +227,7 @@ static void cmd_info(void) {
 }
 
 /* --------- ascii table --------- */
-static void cmd_ascii(void) {
+void cmd_ascii(void) {
     uint32_t c;
     for (c = 32; c < 127; ++c) {
         put_hex2((uint8_t)c);
@@ -330,7 +332,7 @@ static void cmd_hangman(void) {
 }
 
 /* --------- matrix rain --------- */
-static void cmd_matrix(void) {
+void cmd_matrix(void) {
     const int COLS = 76;
     const int ROWS = 22;
     int8_t pos[80];
@@ -358,7 +360,7 @@ static void cmd_matrix(void) {
 }
 
 /* --------- AI-vs-AI pong (text mode) --------- */
-static void cmd_pong(void) {
+void cmd_pong(void) {
     const int W = 60, H = 18;
     int bx = W/2, by = H/2;
     int dx = 1, dy = 1;
@@ -414,7 +416,7 @@ static void cmd_pong(void) {
     }
 }
 
-static void cmd_mandel(void) {
+void cmd_mandel(void) {
     /* 8.8 fixed-point Mandelbrot, ASCII rendered. ~76x22 chars. */
     const int W = 76, H = 22;
     static const char ch[] = " .:-=+*#%@";
@@ -616,6 +618,23 @@ static void dispatch(char *line) {
     puts_both("unknown. try 'help'.\r\n");
 }
 
+/* --- stubs for features not yet implemented (referenced by gui.c/edit.c) --- */
+void cmd_synth(void)   { puts_both("synth: not yet implemented\r\n"); }
+void cmd_imgtest(void) { puts_both("imgtest: not yet implemented\r\n"); }
+void cmd_img(void)     { puts_both("img: not yet implemented\r\n"); }
+void cmd_cam(void)     { puts_both("cam: not yet implemented\r\n"); }
+
+/* capture_* globals used by edit.c for modal CC output display */
+int  capture_mode = 0;
+char capture_buf[128];
+int  capture_len  = 0;
+
+static void shell_task(void) {
+    gui_run();
+    /* If gui_run ever returns, fall back to infinite loop. */
+    for (;;) {}
+}
+
 int main(void) {
     LED_REG = 0;
     cc_setup_syscalls();
@@ -633,10 +652,7 @@ int main(void) {
     puts_both("       type 'help' for commands\r\n");
     puts_both("\r\n");
 
-    char line[128];
-    for (;;) {
-        puts_both("NeOS> ");
-        read_line(line, sizeof line);
-        dispatch(line);
-    }
+    task_create(shell_task);
+    sched_start();
+    return 0;  /* unreachable */
 }
