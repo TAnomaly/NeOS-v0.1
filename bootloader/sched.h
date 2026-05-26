@@ -2,8 +2,8 @@
 #define SCHED_H
 #include <stdint.h>
 
-#define MAX_TASKS 4
-#define STACK_SZ  512
+#define MAX_TASKS 2
+#define STACK_SZ  2048
 
 #define TASK_FREE    0
 #define TASK_READY   1

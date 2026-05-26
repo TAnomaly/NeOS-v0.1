@@ -58,23 +58,11 @@ ctx_switch:
     addi sp, sp, 56
     ret
 
-/* First dispatch: just load sp + pop ra + jump. No save of caller — caller
- * (sched_start, called from main) is being abandoned forever. */
+/* First dispatch: load task's sp (points to combined ctx+irq frame), skip the
+ * ctx_switch portion (already prepared with ra=irq_trampoline_tail), then jump
+ * to tail so the task enters via retirq → q0 (task entry PC). */
 .globl sched_dispatch_first
 sched_dispatch_first:
     mv   sp, a0
-    lw   ra,   0(sp)
-    lw   s0,   4(sp)
-    lw   s1,   8(sp)
-    lw   s2,  12(sp)
-    lw   s3,  16(sp)
-    lw   s4,  20(sp)
-    lw   s5,  24(sp)
-    lw   s6,  28(sp)
-    lw   s7,  32(sp)
-    lw   s8,  36(sp)
-    lw   s9,  40(sp)
-    lw   s10, 44(sp)
-    lw   s11, 48(sp)
-    addi sp, sp, 56
-    jr   ra
+    addi sp, sp, 56             /* skip ctx_switch frame (we don't need it now) */
+    j    irq_trampoline_tail    /* enters task via timer reload + setq q0 + retirq */

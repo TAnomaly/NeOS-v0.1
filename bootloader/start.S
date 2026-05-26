@@ -37,6 +37,11 @@ irq_trampoline:
     sw   ra,  0(sp)
     sw   t0,  4(sp)
     sw   t1,  8(sp)
+    /* DIAGNOSTIC: prove IRQ entry. OR LED bit 0 (preserves other bits). */
+    li   t0, 0x10000010
+    lw   t1, 0(t0)
+    ori  t1, t1, 0x01
+    sw   t1, 0(t0)
     sw   t2, 12(sp)
     sw   t3, 16(sp)
     sw   t4, 20(sp)
@@ -57,6 +62,8 @@ irq_trampoline:
 
     call irq_handler
 
+.globl irq_trampoline_tail
+irq_trampoline_tail:
     /* Reload timer countdown: 270000 cycles = 100 Hz at 27 MHz. */
     li   t0, 270000
     .insn r 0x0b, 0, 5, x0, t0, x0   /* timer x0, t0 -> arms countdown */

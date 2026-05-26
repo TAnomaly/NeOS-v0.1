@@ -631,17 +631,15 @@ int  capture_len  = 0;
 
 static void shell_task(void) {
     gui_run();
-    /* If gui_run ever returns, fall back to infinite loop. */
     for (;;) {}
 }
 
 static void led_task(void) {
     for (;;) {
-        /* Burn cycles between toggles — timer IRQ may preempt us mid-loop. */
-        for (volatile uint32_t i = 0; i < 500000; i++) { }
-        /* Toggle LED bit 5 (highest user LED, bits 0-4 may be used elsewhere). */
+        /* ~1 Hz visible toggle (burn ~13.5M cycles with preemption sharing CPU). */
+        for (volatile uint32_t i = 0; i < 3000000; i++) { }
         uint32_t v = LED_REG;
-        v ^= 0x20;
+        v ^= 0x20;          /* toggle bit 5 */
         LED_REG = v;
     }
 }
@@ -664,7 +662,8 @@ int main(void) {
     puts_both("\r\n");
 
     task_create(shell_task);
-    task_create(led_task);
+    /* DIAGNOSTIC: isolate IRQ from ctx_switch — disable led_task */
+    /* task_create(led_task); */
     sched_start();
     return 0;  /* unreachable */
 }
