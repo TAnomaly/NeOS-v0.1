@@ -47,21 +47,23 @@ static int  e_quit = 0;
 #define TEXT_Y   (STATUS_Y + CH_H)
 #define CMD_Y    (TEXT_Y + VIS_ROWS * CH_H)
 
-/* ---- palette ---- */
+/* ---- palette: aubergine bg, vivid cursor + line highlight ---- */
 static const uint32_t EDIT_PAL[16] = {
-    0x00101418u, /* 0  bg dark            */
-    0x00ffffffu, /* 1  text fg            */
-    0x00a0a0a0u, /* 2  dim                */
-    0x00404448u, /* 3  cursor block       */
-    0x00202830u, /* 4  status bar bg      */
-    0x00ffcc33u, /* 5  mode tag (NORMAL)  */
-    0x0033ff66u, /* 6  mode tag (INSERT)  */
-    0x0033ccffu, /* 7  mode tag (COMMAND) */
-    0x00ff6633u, /* 8  filename / accent  */
-    0x00606060u, /* 9  line numbers       */
-    0x0000ff66u, /* 10 ok msg             */
-    0x00ff3366u, /* 11 error msg          */
-    0, 0, 0, 0,
+    0x001A1A2Eu, /* 0  bg dark            */
+    0x00F0F0F0u, /* 1  text fg            */
+    0x00808890u, /* 2  dim                */
+    0x00E95420u, /* 3  cursor block (Ubuntu orange) */
+    0x0024243Cu, /* 4  status bar bg      */
+    0x00FFCC33u, /* 5  mode tag (NORMAL)  */
+    0x0050C878u, /* 6  mode tag (INSERT)  */
+    0x006BB7FFu, /* 7  mode tag (COMMAND) */
+    0x00FFB186u, /* 8  filename / accent  */
+    0x00606888u, /* 9  line numbers       */
+    0x0050C878u, /* 10 ok msg             */
+    0x00FF3366u, /* 11 error msg          */
+    0x002A2A4Au, /* 12 current line bg    */
+    0x00FFFFFFu, /* 13 cursor text fg     */
+    0, 0,
 };
 
 #define C_BG       0
@@ -72,6 +74,8 @@ static const uint32_t EDIT_PAL[16] = {
 #define C_MNORM    5
 #define C_MINS     6
 #define C_MCMD     7
+#define C_CURLINE  12
+#define C_CURFG    13
 #define C_ACCENT   8
 #define C_LN       9
 #define C_OK       10
@@ -278,31 +282,36 @@ static void render_all(void) {
         int max_chars    = (FB_W - text_start_x) / CH_W;
         if (len > max_chars) len = max_chars;
 
+        int is_cur_line = (line_idx == line_cursor);
         for (int cr = 0; cr < CH_H; ++cr) {
-            fb_row_fill(&row, C_BG);
+            fb_row_fill(&row, is_cur_line ? C_CURLINE : C_BG);
             if (cr < FONT_H) {
                 /* line number gutter */
                 int x = 0;
                 for (int i = 0; i < 3; ++i) {
-                    draw_glyph(&row, x, cr, lnbuf[i], C_LN, -1);
+                    draw_glyph(&row, x, cr, lnbuf[i],
+                               is_cur_line ? C_FG : C_LN, -1);
                     x += CH_W;
                 }
+                /* gutter | separator */
+                if (cr < FONT_H) {
+                    fb_row_pixel(&row, 3 * CH_W, C_DIM);
+                }
                 /* text + cursor highlighting */
-                int has_cursor_here = (line_idx == line_cursor);
-                int cur_col = has_cursor_here ? col_cursor : -1;
+                int cur_col = is_cur_line ? col_cursor : -1;
                 if (cur_col > max_chars) cur_col = max_chars;
 
                 for (int i = 0; i < len; ++i) {
                     int is_cur = (i == cur_col);
                     draw_glyph(&row, text_start_x + i * CH_W, cr,
                                ebuf[s + i],
-                               is_cur ? C_BG : C_FG,
+                               is_cur ? C_CURFG : C_FG,
                                is_cur ? (int)C_CUR : -1);
                 }
                 /* cursor past end of line: draw empty highlighted cell */
-                if (has_cursor_here && cur_col >= len && cur_col < max_chars) {
+                if (is_cur_line && cur_col >= len && cur_col < max_chars) {
                     draw_glyph(&row, text_start_x + cur_col * CH_W, cr,
-                               ' ', C_BG, (int)C_CUR);
+                               ' ', C_CURFG, (int)C_CUR);
                 }
             }
             fb_row_commit(line_y + cr, &row);

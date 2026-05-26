@@ -24,3 +24,11 @@ IO_LOC "tmds_d_p[1]" 73;
 IO_LOC "tmds_d_n[1]" 72;
 IO_LOC "tmds_d_p[2]" 75;
 IO_LOC "tmds_d_n[2]" 74;
+
+// W5500 SPI Ethernet (right header J5 / Bank 3)
+IO_LOC "spi_sck"   25;
+IO_LOC "spi_mosi"  26;
+IO_LOC "spi_miso"  27;
+IO_LOC "spi_cs_n"  28;
+IO_LOC "spi_rst_n" 29;
+IO_PORT "spi_miso" PULL_MODE=UP;

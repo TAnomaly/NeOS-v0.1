@@ -8,7 +8,14 @@ module top (
     output            tmds_clk_p,
     output            tmds_clk_n,
     output      [2:0] tmds_d_p,
-    output      [2:0] tmds_d_n
+    output      [2:0] tmds_d_n,
+
+    // W5500 ethernet via SPI
+    output            spi_sck,
+    output            spi_mosi,
+    input             spi_miso,
+    output            spi_cs_n,
+    output            spi_rst_n
 );
 
     // ---------------- Reset (auto-release after rst_n high, plus PLL lock) ----------------
@@ -74,7 +81,12 @@ module top (
         .fb_cpu_wdata        (fb_cpu_wdata),
         .fb_cpu_rdata        (fb_cpu_rdata),
         .fb_cpu_enable_we    (fb_cpu_enable_we),
-        .fb_cpu_enable_wdata (fb_cpu_enable_wdata)
+        .fb_cpu_enable_wdata (fb_cpu_enable_wdata),
+        .spi_sck             (spi_sck),
+        .spi_mosi            (spi_mosi),
+        .spi_miso            (spi_miso),
+        .spi_cs_n            (spi_cs_n),
+        .spi_rst_n           (spi_rst_n)
     );
 
     // ---------------- HDMI video + hardware pong overlay + framebuffer ----------------

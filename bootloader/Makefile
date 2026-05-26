@@ -5,13 +5,13 @@ OBJCOPY = $(CROSS)objcopy
 CFLAGS  = -march=rv32imc -mabi=ilp32 -Os -ffreestanding -nostdlib -Wall
 LDFLAGS = -T linker.ld -nostdlib -Wl,--build-id=none
 
-SRCS = start.S main.c interp.c cc.c fb.c gui.c edit.c sched.c ctx_switch.S
+SRCS = start.S main.c interp.c cc.c fb.c gui.c edit.c sched.c ctx_switch.S w5500.c
 OUT  = bootldr
 
 all: $(OUT).hex
 
-$(OUT).elf: $(SRCS) linker.ld interp.h cc.h fb.h gui.h font5x7.h edit.h sched.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ start.S main.c interp.c cc.c fb.c gui.c edit.c sched.c ctx_switch.S
+$(OUT).elf: $(SRCS) linker.ld interp.h cc.h fb.h gui.h font5x7.h edit.h sched.h w5500.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ start.S main.c interp.c cc.c fb.c gui.c edit.c sched.c ctx_switch.S w5500.c
 
 $(OUT).bin: $(OUT).elf
 	$(OBJCOPY) -O binary $< $@

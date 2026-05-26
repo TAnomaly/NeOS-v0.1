@@ -1,0 +1,9 @@
+
+Tang Nano 9K	Tel	W5500 modül
+pin 25	SCK	SCLK (SCK)
+pin 26	MOSI	MOSI (DI)
+pin 27	MISO	MISO (DO)
+pin 28	CS_N	SCS (SCSn / CS)
+pin 29	RST_N	RST (RESETn)
+3.3V	VCC	3V3 (VCC)
+GND	GND	GND

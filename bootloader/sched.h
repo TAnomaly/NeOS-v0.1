@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #define MAX_TASKS 2
-#define STACK_SZ  2048
+#define STACK_SZ  1024
 
 #define TASK_FREE    0
 #define TASK_READY   1
@@ -19,6 +19,7 @@ typedef struct {
 extern tcb_t   tasks[MAX_TASKS];
 extern uint8_t cur_task;
 extern uint8_t task_stacks[MAX_TASKS][STACK_SZ];
+extern uint32_t irq_ticks;   /* 100 Hz tick counter, used for uptime */
 
 /* Returns task id (>=0) or -1 if no free slot. */
 int  task_create(void (*entry)(void));

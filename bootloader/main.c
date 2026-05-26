@@ -11,6 +11,7 @@
 #include "cc.h"
 #include "gui.h"
 #include "sched.h"
+#include "w5500.h"
 extern void cc_setup_syscalls(void);
 #define CC_CODE_BASE  ((uint32_t *)0x00006100u)
 #define CC_CODE_MAX   960
@@ -134,7 +135,7 @@ static int tok_eq(const char *tok, const char *word) {
 }
 
 /* --- line editor: read a line into buf, echo to both --- */
-static int read_line(char *buf, int max) {
+int read_line(char *buf, int max) {
     int n = 0;
     for (;;) {
         uint8_t c = uart_getc_blocking();
@@ -512,7 +513,7 @@ static void cmd_dump(uint32_t addr, uint32_t len) {
 }
 
 /* dispatch one line; returns 1 if user asked to upload (special path). */
-static void dispatch(char *line) {
+void dispatch(char *line) {
     const char *p = skip_spaces(line);
     if (!*p) return;
 
@@ -544,6 +545,85 @@ static void dispatch(char *line) {
     if (tok_eq(p, "hangman"))   { cmd_hangman(); return; }
     if (tok_eq(p, "ascii"))  { cmd_ascii();  return; }
     if (tok_eq(p, "info"))   { cmd_info();   return; }
+    if (tok_eq(p, "net"))    {
+        puts_both("W5500 reset...\r\n");
+        w5500_reset();
+        uint8_t v = w5500_version();
+        puts_both("W5500 VERSIONR = 0x");
+        put_hex2(v);
+        puts_both(v == 0x04 ? "  OK (W5500 detected)\r\n"
+                            : "  FAIL (expected 0x04 - check wiring)\r\n");
+        return;
+    }
+    if (tok_eq(p, "netcfg")) {
+        /* Direct-link config for laptop<->W5500 ethernet. Laptop = .1, NeOS = .99 */
+        static const uint8_t MAC[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01 };
+        static const uint8_t IP[4]  = { 192, 168, 50, 99 };
+        static const uint8_t GW[4]  = { 192, 168, 50, 1 };
+        static const uint8_t SUB[4] = { 255, 255, 255, 0 };
+        w5500_set_mac(MAC);
+        w5500_set_ip(IP);
+        w5500_set_gateway(GW);
+        w5500_set_subnet(SUB);
+        puts_both("net: configured IP 192.168.50.99 / GW 192.168.50.1\r\n");
+        return;
+    }
+    if (tok_eq(p, "tcptest")) {
+        /* Full self-contained demo: reset, config, open, connect, send, recv. */
+        static const uint8_t MAC[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01 };
+        static const uint8_t IP[4]  = { 192, 168, 50, 99 };
+        static const uint8_t GW[4]  = { 192, 168, 50, 1 };
+        static const uint8_t SUB[4] = { 255, 255, 255, 0 };
+        static const uint8_t DST[4] = { 192, 168, 50, 1 };
+        puts_both("tcp: resetting W5500...\r\n");
+        w5500_reset();
+        if (w5500_version() != 0x04) {
+            puts_both("tcp: W5500 not detected (VERSIONR != 0x04)\r\n");
+            return;
+        }
+        w5500_set_mac(MAC);
+        w5500_set_ip(IP);
+        w5500_set_gateway(GW);
+        w5500_set_subnet(SUB);
+        puts_both("tcp: opening socket on local port 50000...\r\n");
+        if (w5500_tcp_open(50000) < 0) {
+            puts_both("tcp: open FAIL (status=0x");
+            put_hex2(w5500_tcp_status());
+            puts_both(")\r\n");
+            return;
+        }
+        puts_both("tcp: connecting to 192.168.50.1:8080...\r\n");
+        if (w5500_tcp_connect(DST, 8080) < 0) {
+            puts_both("tcp: connect FAIL (status=0x");
+            put_hex2(w5500_tcp_status());
+            puts_both(")\r\n");
+            w5500_tcp_close();
+            return;
+        }
+        puts_both("tcp: connected. sending hello...\r\n");
+        const char *req = "Hello from NeOS on Tang Nano 9K!\r\n";
+        int n = 0; while (req[n]) n++;
+        w5500_tcp_send((const uint8_t *)req, (uint16_t)n);
+        puts_both("tcp: response:\r\n--\r\n");
+        uint8_t buf[64];
+        uint32_t total = 0;
+        for (uint32_t loop = 0; loop < 2000000; loop++) {
+            int r = w5500_tcp_recv(buf, sizeof(buf));
+            if (r > 0) {
+                for (int i = 0; i < r; i++) putc_both((char)buf[i]);
+                total += (uint32_t)r;
+                loop = 0;
+            }
+            uint8_t s = w5500_tcp_status();
+            if (s == W5500_SR_CLOSE_WAIT || s == W5500_SR_CLOSED) break;
+            for (volatile int d = 0; d < 100; d++) { }
+        }
+        w5500_tcp_close();
+        puts_both("\r\n--\r\ntcp: closed, total=");
+        put_dec(total);
+        puts_both(" bytes\r\n");
+        return;
+    }
 
     if (tok_eq(p, "u")) {                                /* upload */
         while (*p && !is_space(*p)) ++p;
@@ -632,6 +712,24 @@ int  capture_len  = 0;
 static void shell_task(void) {
     gui_run();
     for (;;) {}
+}
+
+/* TERM tile entry: drop into NeOS shell. Type 'exit' or 'gui' to return. */
+void repl_run(void) {
+    char line[64];
+    puts_both("\r\nNeOS shell. type 'help', 'gui' or 'exit' to return.\r\n");
+    puts_both("NeOS> ");
+    for (;;) {
+        int n = read_line(line, sizeof line);
+        if (n == 0) { puts_both("NeOS> "); continue; }
+        const char *p = skip_spaces(line);
+        if (tok_eq(p, "exit") || tok_eq(p, "gui") || tok_eq(p, "quit")) {
+            puts_both("[returning to desktop]\r\n");
+            return;
+        }
+        dispatch(line);
+        puts_both("NeOS> ");
+    }
 }
 
 static void led_task(void) {

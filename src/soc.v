@@ -21,7 +21,14 @@ module soc (
     output wire [31:0] fb_cpu_wdata,
     input  wire [31:0] fb_cpu_rdata,
     output wire        fb_cpu_enable_we,
-    output wire        fb_cpu_enable_wdata
+    output wire        fb_cpu_enable_wdata,
+
+    // SPI master pins (to W5500 ethernet)
+    output wire        spi_sck,
+    output wire        spi_mosi,
+    input  wire        spi_miso,
+    output wire        spi_cs_n,
+    output wire        spi_rst_n
 );
 
     // PicoRV32 mem interface
@@ -92,6 +99,7 @@ module soc (
     wire sel_pong   = (mem_addr[31:28] == 4'h1) && (mem_addr[7:4] == 4'h3);
     wire sel_fb_en  = (mem_addr[31:28] == 4'h1) && (mem_addr[7:4] == 4'h4);
     wire sel_fb     = (mem_addr[31:28] == 4'h2);
+    wire sel_spi    = (mem_addr[31:28] == 4'h1) && (mem_addr[7:4] == 4'h6);
 
     // Framebuffer CPU port wires
     assign fb_cpu_resetn       = !reset;
@@ -126,6 +134,24 @@ module soc (
         .data (uart_tx_data),
         .tx   (uart_tx),
         .busy (uart_tx_busy)
+    );
+
+    // SPI master (W5500 ethernet)
+    wire        spi_cs_sel = mem_valid && sel_spi && !mem_ready_r;
+    wire [31:0] spi_rdata;
+    spi_master u_spi (
+        .clk   (clk),
+        .reset (reset),
+        .cs    (spi_cs_sel),
+        .we    (sel_spi ? mem_wstrb : 4'b0),
+        .addr  (mem_addr[4:2]),
+        .wdata (mem_wdata),
+        .rdata (spi_rdata),
+        .sck   (spi_sck),
+        .mosi  (spi_mosi),
+        .miso  (spi_miso),
+        .cs_n  (spi_cs_n),
+        .rst_n (spi_rst_n)
     );
 
     // UART RX — CPU polls; read clears valid
@@ -189,6 +215,7 @@ module soc (
         (sel_term && mem_addr[3:2] == 2'b01) ? {31'b0, term_in_tvalid} :
         sel_pong                             ? {31'b0, pong_enable} :
         sel_fb                               ? fb_cpu_rdata :
+        sel_spi                              ? spi_rdata :
         32'h0000_0000;
 
 endmodule

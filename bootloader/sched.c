@@ -51,12 +51,13 @@ static uint8_t pick_next(void) {
 /* Defined in ctx_switch.S (Task 5). Args: addr of old sp, addr of new sp. */
 extern void ctx_switch(uint32_t *old_sp, uint32_t *new_sp);
 
+/* Tick counter at ~100 Hz. Exposed so GUI can show uptime. */
+uint32_t irq_ticks = 0;
+
 void irq_handler(void) {
-    /* DIAGNOSTIC: toggle LED bit 4 every 50 IRQs (~1 Hz) to prove IRQ firing
-     * independently of context switching. */
-    static uint32_t irq_count = 0;
-    irq_count++;
-    if ((irq_count % 50) == 0) {
+    irq_ticks++;
+    /* Heartbeat: toggle LED bit 4 every 50 IRQs (~1 Hz). */
+    if ((irq_ticks % 50) == 0) {
         volatile uint32_t *led = (volatile uint32_t *)0x10000010;
         *led ^= 0x10;
     }
