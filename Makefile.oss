@@ -11,6 +11,7 @@ SOURCES := $(SRC_DIR)/top.v $(SRC_DIR)/soc.v $(SRC_DIR)/picorv32.v \
            $(SRC_DIR)/hdmi/svo_tmds.v $(SRC_DIR)/hdmi/svo_term.v \
            $(SRC_DIR)/hdmi/svo_enc.v  $(SRC_DIR)/hdmi/svo_tcard.v \
            $(SRC_DIR)/hdmi/svo_vdma.v $(SRC_DIR)/hdmi/svo_utils.v \
+           $(SRC_DIR)/hdmi/svo_framebuffer.v \
            $(SRC_DIR)/hdmi/svo_hdmi_top.v
 
 CST       := tangnano9k.cst

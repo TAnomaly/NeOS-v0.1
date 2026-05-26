@@ -33,8 +33,8 @@ void put_dec(uint32_t v);
 void put_hex8(uint32_t v);
 
 /* ---- Addresses ---- */
-#define VARS_BASE     0x00006000u
-#define SYSCALL_BASE  0x00006080u   /* table of fn pointers */
+#define VARS_BASE     0x00007000u
+#define SYSCALL_BASE  0x00007080u   /* table of fn pointers */
 
 /* Syscall indices */
 enum {

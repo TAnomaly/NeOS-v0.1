@@ -33,6 +33,20 @@ module svo_hdmi_top (
 	output       term_in_tready,
 	input  [7:0] term_in_tdata,
 
+	// hardware overlay enable (synced internally to clk_pixel)
+	input        pong_enable,
+
+	// framebuffer (PNG display) — CPU access + enable
+	input  wire        fb_cpu_clk,
+	input  wire        fb_cpu_resetn,
+	input  wire        fb_cpu_sel,
+	input  wire [12:0] fb_cpu_addr_word,
+	input  wire        fb_cpu_we,
+	input  wire [31:0] fb_cpu_wdata,
+	output wire [31:0] fb_cpu_rdata,
+	input  wire        fb_cpu_enable_we,
+	input  wire        fb_cpu_enable_wdata,
+
 	// output signals
 	output       tmds_clk_n,
 	output       tmds_clk_p,
@@ -136,14 +150,47 @@ module svo_hdmi_top (
 		.out_axis_tuser(video_tuser)
 	);
 
+	// ---- Pong overlay disabled (LUT budget; framebuffer takes its slot) ----
+	wire _pong_unused = pong_enable;   // keep top-level port alive
+
+	// ---- Framebuffer (160x120 @ 4 bpp, 16-color, pixel-doubled 4x) ----
+	wire fb_tvalid, fb_tready;
+	wire [SVO_BITS_PER_PIXEL-1:0] fb_tdata;
+	wire [0:0] fb_tuser;
+
+	svo_framebuffer #( `SVO_PASS_PARAMS ) svo_framebuffer_i (
+		.cpu_clk           (fb_cpu_clk),
+		.cpu_resetn        (fb_cpu_resetn),
+		.cpu_sel           (fb_cpu_sel),
+		.cpu_addr_word     (fb_cpu_addr_word),
+		.cpu_we            (fb_cpu_we),
+		.cpu_wdata         (fb_cpu_wdata),
+		.cpu_rdata         (fb_cpu_rdata),
+		.cpu_enable_we     (fb_cpu_enable_we),
+		.cpu_enable_wdata  (fb_cpu_enable_wdata),
+
+		.clk_pixel         (clk_pixel),
+		.resetn            (clk_pixel_resetn),
+
+		.in_axis_tvalid    (video_tvalid),
+		.in_axis_tready    (video_tready),
+		.in_axis_tdata     (video_tdata),
+		.in_axis_tuser     (video_tuser),
+
+		.out_axis_tvalid   (fb_tvalid),
+		.out_axis_tready   (fb_tready),
+		.out_axis_tdata    (fb_tdata),
+		.out_axis_tuser    (fb_tuser)
+	);
+
 	svo_enc #( `SVO_PASS_PARAMS ) svo_enc (
 		.clk(clk_pixel),
 		.resetn(clk_pixel_resetn),
 
-		.in_axis_tvalid(video_tvalid),
-		.in_axis_tready(video_tready),
-		.in_axis_tdata(video_tdata),
-		.in_axis_tuser(video_tuser),
+		.in_axis_tvalid(fb_tvalid),
+		.in_axis_tready(fb_tready),
+		.in_axis_tdata(fb_tdata),
+		.in_axis_tuser(fb_tuser),
 
 		.out_axis_tvalid(video_enc_tvalid),
 		.out_axis_tready(video_enc_tready),

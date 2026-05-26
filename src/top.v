@@ -46,23 +46,38 @@ module top (
     wire        term_in_tvalid;
     wire        term_in_tready;
     wire  [7:0] term_in_tdata;
-    wire [15:0] audio_freq_hz;
+    wire        pong_enable;
+
+    wire        fb_cpu_resetn;
+    wire        fb_cpu_sel;
+    wire [12:0] fb_cpu_addr_word;
+    wire        fb_cpu_we;
+    wire [31:0] fb_cpu_wdata;
+    wire [31:0] fb_cpu_rdata;
+    wire        fb_cpu_enable_we;
+    wire        fb_cpu_enable_wdata;
 
     soc soc_i (
-        .clk            (clk),
-        .reset          (reset),
-        .uart_rx        (uart_rx),
-        .uart_tx        (uart_tx),
-        .led            (led),
-        .term_in_tvalid (term_in_tvalid),
-        .term_in_tready (term_in_tready),
-        .term_in_tdata  (term_in_tdata),
-        .audio_freq_hz  (audio_freq_hz)
+        .clk                 (clk),
+        .reset               (reset),
+        .uart_rx             (uart_rx),
+        .uart_tx             (uart_tx),
+        .led                 (led),
+        .term_in_tvalid      (term_in_tvalid),
+        .term_in_tready      (term_in_tready),
+        .term_in_tdata       (term_in_tdata),
+        .pong_enable         (pong_enable),
+        .fb_cpu_resetn       (fb_cpu_resetn),
+        .fb_cpu_sel          (fb_cpu_sel),
+        .fb_cpu_addr_word    (fb_cpu_addr_word),
+        .fb_cpu_we           (fb_cpu_we),
+        .fb_cpu_wdata        (fb_cpu_wdata),
+        .fb_cpu_rdata        (fb_cpu_rdata),
+        .fb_cpu_enable_we    (fb_cpu_enable_we),
+        .fb_cpu_enable_wdata (fb_cpu_enable_wdata)
     );
 
-    // ---------------- HDMI video (audio not working — reverted) ----------------
-    wire _audio_unused = |audio_freq_hz;   // keep reg from being optimized out
-
+    // ---------------- HDMI video + hardware pong overlay + framebuffer ----------------
     svo_hdmi_top u_hdmi (
         .clk            (clk),
         .resetn         (sys_resetn),
@@ -73,6 +88,18 @@ module top (
         .term_in_tvalid (term_in_tvalid),
         .term_in_tready (term_in_tready),
         .term_in_tdata  (term_in_tdata),
+
+        .pong_enable    (pong_enable),
+
+        .fb_cpu_clk           (clk),
+        .fb_cpu_resetn        (fb_cpu_resetn),
+        .fb_cpu_sel           (fb_cpu_sel),
+        .fb_cpu_addr_word     (fb_cpu_addr_word),
+        .fb_cpu_we            (fb_cpu_we),
+        .fb_cpu_wdata         (fb_cpu_wdata),
+        .fb_cpu_rdata         (fb_cpu_rdata),
+        .fb_cpu_enable_we     (fb_cpu_enable_we),
+        .fb_cpu_enable_wdata  (fb_cpu_enable_wdata),
 
         .tmds_clk_p     (tmds_clk_p),
         .tmds_clk_n     (tmds_clk_n),
