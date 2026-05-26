@@ -10,8 +10,18 @@ module soc (
     input  wire       term_in_tready,
     output reg  [7:0] term_in_tdata,
 
-    // HDMI audio frequency in Hz (0 = silent). Written by CPU.
-    output reg [15:0] audio_freq_hz
+    // HDMI hardware overlay: pong on/off. Bit[0] = enable.
+    output reg        pong_enable,
+
+    // HDMI framebuffer (PNG display). CPU-side BRAM port + enable register.
+    output wire        fb_cpu_resetn,
+    output wire        fb_cpu_sel,
+    output wire [12:0] fb_cpu_addr_word,
+    output wire        fb_cpu_we,
+    output wire [31:0] fb_cpu_wdata,
+    input  wire [31:0] fb_cpu_rdata,
+    output wire        fb_cpu_enable_we,
+    output wire        fb_cpu_enable_wdata
 );
 
     // PicoRV32 mem interface
@@ -47,7 +57,9 @@ module soc (
         .ENABLE_MUL          (1),
         .ENABLE_FAST_MUL     (0),
         .ENABLE_DIV          (1),
-        .ENABLE_IRQ          (0),
+        .ENABLE_IRQ          (1),
+        .ENABLE_IRQ_QREGS    (1),
+        .ENABLE_IRQ_TIMER    (1),
         .ENABLE_TRACE        (0),
         .REGS_INIT_ZERO      (0),
         .STACKADDR           (32'h0000_8000),
@@ -68,7 +80,8 @@ module soc (
         .mem_la_write(mem_la_write),
         .mem_la_addr (mem_la_addr),
         .mem_la_wdata(mem_la_wdata),
-        .mem_la_wstrb(mem_la_wstrb)
+        .mem_la_wstrb(mem_la_wstrb),
+        .irq         (32'h0)
     );
 
     // Address decode
@@ -76,7 +89,18 @@ module soc (
     wire sel_uart = (mem_addr[31:28] == 4'h1) && (mem_addr[7:4] == 4'h0);
     wire sel_led  = (mem_addr[31:28] == 4'h1) && (mem_addr[7:4] == 4'h1);
     wire sel_term  = (mem_addr[31:28] == 4'h1) && (mem_addr[7:4] == 4'h2);
-    wire sel_audio = (mem_addr[31:28] == 4'h1) && (mem_addr[7:4] == 4'h3);
+    wire sel_pong   = (mem_addr[31:28] == 4'h1) && (mem_addr[7:4] == 4'h3);
+    wire sel_fb_en  = (mem_addr[31:28] == 4'h1) && (mem_addr[7:4] == 4'h4);
+    wire sel_fb     = (mem_addr[31:28] == 4'h2);
+
+    // Framebuffer CPU port wires
+    assign fb_cpu_resetn       = !reset;
+    assign fb_cpu_sel          = mem_valid && sel_fb && !mem_ready_r;
+    assign fb_cpu_addr_word    = mem_addr[14:2];
+    assign fb_cpu_we           = mem_valid && sel_fb && (mem_wstrb != 4'b0000) && !mem_ready_r;
+    assign fb_cpu_wdata        = mem_wdata;
+    assign fb_cpu_enable_we    = mem_valid && sel_fb_en && (mem_wstrb != 4'b0000) && !mem_ready_r;
+    assign fb_cpu_enable_wdata = mem_wdata[0];
 
     // BRAM: 32 KB, 8192 words, byte-write enables
     wire [31:0] ram_rdata;
@@ -129,7 +153,7 @@ module soc (
             term_in_tvalid <= 1'b0;
             term_in_tdata  <= 8'h00;
             led            <= 6'b111111;
-            audio_freq_hz  <= 16'h0000;
+            pong_enable    <= 1'b0;
         end else begin
             // Handshake: drop tvalid the cycle svo_hdmi takes the byte.
             if (term_in_tvalid && term_in_tready)
@@ -142,8 +166,8 @@ module soc (
             if (mem_valid && sel_led && (mem_wstrb != 4'b0000) && !mem_ready_r)
                 led <= ~mem_wdata[5:0];
 
-            if (mem_valid && sel_audio && (mem_wstrb != 4'b0000) && !mem_ready_r)
-                audio_freq_hz <= mem_wdata[15:0];
+            if (mem_valid && sel_pong && (mem_wstrb != 4'b0000) && !mem_ready_r)
+                pong_enable <= mem_wdata[0];
         end
     end
 
@@ -163,7 +187,8 @@ module soc (
         (sel_uart && mem_addr[3:2] == 2'b10) ? {24'b0, uart_rx_data} :
         (sel_term && mem_addr[3:2] == 2'b00) ? 32'h0000_0000 :
         (sel_term && mem_addr[3:2] == 2'b01) ? {31'b0, term_in_tvalid} :
-        sel_audio                            ? {16'b0, audio_freq_hz} :
+        sel_pong                             ? {31'b0, pong_enable} :
+        sel_fb                               ? fb_cpu_rdata :
         32'h0000_0000;
 
 endmodule
