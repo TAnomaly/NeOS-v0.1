@@ -635,6 +635,17 @@ static void shell_task(void) {
     for (;;) {}
 }
 
+static void led_task(void) {
+    for (;;) {
+        /* Burn cycles between toggles — timer IRQ may preempt us mid-loop. */
+        for (volatile uint32_t i = 0; i < 500000; i++) { }
+        /* Toggle LED bit 5 (highest user LED, bits 0-4 may be used elsewhere). */
+        uint32_t v = LED_REG;
+        v ^= 0x20;
+        LED_REG = v;
+    }
+}
+
 int main(void) {
     LED_REG = 0;
     cc_setup_syscalls();
@@ -653,6 +664,7 @@ int main(void) {
     puts_both("\r\n");
 
     task_create(shell_task);
+    task_create(led_task);
     sched_start();
     return 0;  /* unreachable */
 }

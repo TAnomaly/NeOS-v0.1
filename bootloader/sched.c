@@ -56,7 +56,9 @@ extern void sched_dispatch_first(uint32_t new_sp);
 void sched_start(void) {
     cur_task = 0;
     tasks[0].state = TASK_RUNNING;
+    /* Arm timer: 270000 cycles to first IRQ (~100 Hz at 27 MHz). */
+    uint32_t cnt = 270000;
+    asm volatile (".insn r 0x0b, 0, 5, x0, %0, x0" :: "r"(cnt));
     sched_dispatch_first(tasks[0].sp);
-    /* Unreachable. */
     for (;;) {}
 }
