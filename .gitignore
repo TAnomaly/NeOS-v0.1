@@ -9,3 +9,15 @@ picorv32/impl/
 *.bak
 __pycache__/
 .vscode/
+
+# Bootloader build artifacts
+bootloader/*.o
+bootloader/*.bin
+bootloader/*.elf
+bootloader/*.hex
+bootloader/*.map
+
+# Misc
+*.jpeg
+*.jpg
+
