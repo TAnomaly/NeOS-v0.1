@@ -30,16 +30,3 @@ irq_trampoline:
     /* No-op: ack timer (write 0 disables it) then return. */
     .insn r 0x0b, 0, 5, x0, x0, x0   /* timer x0, x0  -> set countdown=0 */
     .insn r 0x0b, 0, 2, x0, x0, x0   /* retirq */
-
-.weak sched_dispatch_first
-sched_dispatch_first:
-    /* a0 = new sp. Load it, pop ra (which holds task entry), jump. */
-    mv   sp, a0
-    lw   ra, 0(sp)
-    addi sp, sp, 56
-    jr   ra
-
-.weak ctx_switch
-ctx_switch:
-    /* Temporary no-op stub until Task 5. */
-    ret
